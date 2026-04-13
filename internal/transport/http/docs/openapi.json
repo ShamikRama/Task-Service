@@ -1,0 +1,585 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Task Service API",
+    "version": "2.0.0",
+    "description": "API for task management with periodic scheduling support."
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8080"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Tasks",
+      "description": "Operations with tasks"
+    },
+    {
+      "name": "Templates",
+      "description": "Шаблоны периодичности задач (правило повторения и текст по умолчанию)"
+    }
+  ],
+  "paths": {
+    "/api/v1/tasks": {
+      "get": {
+        "tags": ["Tasks"],
+        "summary": "List tasks",
+        "description": "All query parameters are optional. Without filters returns all tasks. Order: scheduled_date ascending (NULL last), then id ascending.",
+        "parameters": [
+          {
+            "name": "template_id",
+            "in": "query",
+            "required": false,
+            "description": "Filter tasks by template ID (шаблон периодичности)",
+            "schema": { "type": "integer", "format": "int64", "minimum": 1 }
+          },
+          {
+            "name": "date",
+            "in": "query",
+            "required": false,
+            "description": "Exact calendar day for scheduled_date (YYYY-MM-DD)",
+            "schema": { "type": "string", "format": "date" }
+          },
+          {
+            "name": "date_from",
+            "in": "query",
+            "required": false,
+            "description": "Lower bound for scheduled_date (YYYY-MM-DD), inclusive",
+            "schema": { "type": "string", "format": "date" }
+          },
+          {
+            "name": "date_to",
+            "in": "query",
+            "required": false,
+            "description": "Upper bound for scheduled_date (YYYY-MM-DD), inclusive",
+            "schema": { "type": "string", "format": "date" }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "description": "Filter by task status",
+            "schema": { "type": "string", "enum": ["new", "in_progress", "done"] }
+          },
+          {
+            "name": "expand",
+            "in": "query",
+            "required": false,
+            "description": "Comma-separated relations to embed. Use `template` to include the full template. `schedule` is accepted as deprecated alias.",
+            "schema": { "type": "string", "example": "template" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Task list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/Task" }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" }
+        }
+      },
+      "post": {
+        "tags": ["Tasks"],
+        "summary": "Create task",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateTaskRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Created task",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Task" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" }
+        }
+      }
+    },
+    "/api/v1/tasks/{id}": {
+      "get": {
+        "tags": ["Tasks"],
+        "summary": "Get task by ID",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer", "format": "int64", "minimum": 1 }
+          },
+          {
+            "name": "expand",
+            "in": "query",
+            "required": false,
+            "description": "Set to `template` to embed the parent template when template_id is set. `schedule` is a deprecated alias.",
+            "schema": { "type": "string", "example": "template" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Task",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Task" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      },
+      "put": {
+        "tags": ["Tasks"],
+        "summary": "Update task",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer", "format": "int64", "minimum": 1 }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UpdateTaskRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated task",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Task" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      },
+      "delete": {
+        "tags": ["Tasks"],
+        "summary": "Delete task",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer", "format": "int64", "minimum": 1 }
+          }
+        ],
+        "responses": {
+          "204": { "description": "Deleted" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/v1/templates": {
+      "get": {
+        "tags": ["Templates"],
+        "summary": "List templates",
+        "parameters": [
+          {
+            "name": "active_only",
+            "in": "query",
+            "required": false,
+            "description": "If true, only active templates",
+            "schema": { "type": "boolean" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Template list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/Template" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/templates/create-and-generate": {
+      "post": {
+        "tags": ["Templates"],
+        "summary": "Create template and generate tasks in one request",
+        "description": "Primary way to create a template from the API: same body as create template plus generate_from / generate_to (YYYY-MM-DD). Creates template and tasks in a single DB transaction (all-or-nothing). Further materialization for active templates is done by the background scheduler. There is no separate HTTP endpoint to create a template without tasks or to generate for one template only.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateTemplateWithGenerateRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Template created and tasks generated (or skipped as duplicates)",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CreateTemplateWithGenerateResponse" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" }
+        }
+      }
+    },
+    "/api/v1/templates/{id}": {
+      "get": {
+        "tags": ["Templates"],
+        "summary": "Get template by ID",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer", "format": "int64", "minimum": 1 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Template",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Template" }
+              }
+            }
+          },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      },
+      "put": {
+        "tags": ["Templates"],
+        "summary": "Update template",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer", "format": "int64", "minimum": 1 }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UpdateTemplateRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated template",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Template" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      },
+      "delete": {
+        "tags": ["Templates"],
+        "summary": "Delete template",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer", "format": "int64", "minimum": 1 }
+          }
+        ],
+        "responses": {
+          "204": { "description": "Deleted" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    }
+  },
+  "components": {
+    "responses": {
+      "BadRequest": {
+        "description": "Bad request",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "Resource not found",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "CreateTaskRequest": {
+        "type": "object",
+        "required": ["title"],
+        "properties": {
+          "title": {
+            "type": "string",
+            "example": "Prepare release"
+          },
+          "description": {
+            "type": "string",
+            "example": "Collect release notes and check migrations"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["new", "in_progress", "done"],
+            "example": "new"
+          }
+        }
+      },
+      "UpdateTaskRequest": {
+        "type": "object",
+        "required": ["title", "status"],
+        "properties": {
+          "title": {
+            "type": "string",
+            "example": "Prepare release"
+          },
+          "description": {
+            "type": "string",
+            "example": "Collect release notes and check migrations"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["new", "in_progress", "done"],
+            "example": "in_progress"
+          },
+          "unlink_template": {
+            "type": "boolean",
+            "default": false,
+            "description": "If true, sets template_id to null (ignores template_id in the same request)"
+          },
+          "template_id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1,
+            "description": "Link task to this template; omit to leave unchanged"
+          },
+          "clear_scheduled_date": {
+            "type": "boolean",
+            "default": false,
+            "description": "If true, clears scheduled_date (ignores scheduled_date in the same request)"
+          },
+          "scheduled_date": {
+            "type": "string",
+            "format": "date",
+            "description": "Calendar day for the task (YYYY-MM-DD); omit to leave unchanged"
+          }
+        }
+      },
+      "Task": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer", "format": "int64", "example": 1 },
+          "title": { "type": "string", "example": "Обход пациентов" },
+          "description": { "type": "string", "example": "Утренний обход палат" },
+          "status": {
+            "type": "string",
+            "enum": ["new", "in_progress", "done"],
+            "example": "new"
+          },
+          "template_id": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true,
+            "example": 1
+          },
+          "scheduled_date": {
+            "type": "string",
+            "format": "date",
+            "nullable": true,
+            "example": "2026-04-10"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-03-24T00:00:00Z"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-03-24T00:00:00Z"
+          },
+          "template": {
+            "nullable": true,
+            "description": "Present when GET used expand=template and the task is linked to a template that exists",
+            "allOf": [{ "$ref": "#/components/schemas/Template" }]
+          }
+        }
+      },
+      "CreateTemplateWithGenerateRequest": {
+        "allOf": [
+          { "$ref": "#/components/schemas/CreateTemplateRequest" },
+          {
+            "type": "object",
+            "required": ["generate_from", "generate_to"],
+            "properties": {
+              "generate_from": {
+                "type": "string",
+                "format": "date",
+                "description": "First calendar day to materialize tasks (inclusive)",
+                "example": "2026-04-01"
+              },
+              "generate_to": {
+                "type": "string",
+                "format": "date",
+                "description": "Last calendar day to materialize tasks (inclusive)",
+                "example": "2026-04-30"
+              }
+            }
+          }
+        ]
+      },
+      "CreateTemplateWithGenerateResponse": {
+        "type": "object",
+        "required": ["template", "generation"],
+        "properties": {
+          "template": { "$ref": "#/components/schemas/Template" },
+          "generation": {
+            "type": "object",
+            "required": ["total_dates", "generated_count", "skipped_count"],
+            "properties": {
+              "total_dates": { "type": "integer" },
+              "generated_count": { "type": "integer", "format": "int64" },
+              "skipped_count": { "type": "integer", "format": "int64" }
+            }
+          }
+        }
+      },
+      "CreateTemplateRequest": {
+        "type": "object",
+        "required": ["title", "periodicity_type", "periodicity_params", "start_date"],
+        "properties": {
+          "title": {
+            "type": "string",
+            "example": "Ежедневный обзвон пациентов"
+          },
+          "description": {
+            "type": "string",
+            "example": "Обзвон выздоравливающих пациентов"
+          },
+          "periodicity_type": {
+            "type": "string",
+            "enum": ["daily", "monthly", "specific_dates", "even_days", "odd_days"],
+            "example": "daily"
+          },
+          "periodicity_params": {
+            "type": "object",
+            "description": "Parameters specific to periodicity_type. daily: {interval: N}, monthly: {days: [1,15]}, specific_dates: {dates: ['2026-04-10']}, even_days/odd_days: {}",
+            "example": { "interval": 2 }
+          },
+          "start_date": {
+            "type": "string",
+            "format": "date",
+            "example": "2026-04-01"
+          },
+          "end_date": {
+            "type": "string",
+            "format": "date",
+            "nullable": true,
+            "example": "2026-12-31"
+          },
+          "is_active": {
+            "type": "boolean",
+            "default": true
+          }
+        }
+      },
+      "UpdateTemplateRequest": {
+        "type": "object",
+        "required": ["title", "periodicity_type", "periodicity_params", "start_date"],
+        "properties": {
+          "title": {
+            "type": "string",
+            "example": "Ежедневный обзвон пациентов"
+          },
+          "description": {
+            "type": "string",
+            "example": "Обзвон выздоравливающих пациентов"
+          },
+          "periodicity_type": {
+            "type": "string",
+            "enum": ["daily", "monthly", "specific_dates", "even_days", "odd_days"],
+            "example": "daily"
+          },
+          "periodicity_params": {
+            "type": "object",
+            "example": { "interval": 3 }
+          },
+          "start_date": {
+            "type": "string",
+            "format": "date",
+            "example": "2026-04-01"
+          },
+          "end_date": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "is_active": {
+            "type": "boolean",
+            "default": true
+          }
+        }
+      },
+      "Template": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer", "format": "int64", "example": 1 },
+          "title": { "type": "string", "example": "Ежедневный обзвон пациентов" },
+          "description": { "type": "string", "example": "Обзвон выздоравливающих пациентов" },
+          "periodicity_type": {
+            "type": "string",
+            "enum": ["daily", "monthly", "specific_dates", "even_days", "odd_days"],
+            "example": "daily"
+          },
+          "periodicity_params": {
+            "type": "object",
+            "example": { "interval": 2 }
+          },
+          "start_date": { "type": "string", "format": "date", "example": "2026-04-01" },
+          "end_date": { "type": "string", "format": "date", "nullable": true, "example": "2026-12-31" },
+          "is_active": { "type": "boolean", "example": true },
+          "created_at": { "type": "string", "format": "date-time", "example": "2026-03-24T00:00:00Z" },
+          "updated_at": { "type": "string", "format": "date-time", "example": "2026-03-24T00:00:00Z" }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": { "type": "string", "example": "task not found" }
+        }
+      }
+    }
+  }
+}

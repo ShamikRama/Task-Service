@@ -1,0 +1,12 @@
+#go generate ./internal/mocks/tasktemplate/...
+issue-845-fix: true
+with-expecter: false
+packages:
+  example.com/taskservice/internal/usecase/tasktemplate:
+    config:
+      dir: "{{.ConfigDir}}/internal/mocks/tasktemplate"
+      outpkg: tasktemplatemocks
+      mockname: "{{.InterfaceName}}"
+      filename: "repository_mock.go"
+    interfaces:
+      Repository:
