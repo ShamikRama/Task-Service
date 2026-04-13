@@ -53,7 +53,7 @@ http://localhost:8080/swagger/openapi.json
 - `GET /api/v1/tasks/{id}`
 - `PUT /api/v1/tasks/{id}`
 - `DELETE /api/v1/tasks/{id}`
-- `POST /api/v1/templates/create-and-generate` — создать шаблон и сразу сгенерировать задачи на интервал
+- `POST /api/v1/templates/create`
 - `GET /api/v1/templates`
 - `GET /api/v1/templates/{id}`
 - `PUT /api/v1/templates/{id}`
@@ -79,4 +79,6 @@ http://localhost:8080/swagger/openapi.json
 
 Во втором скриншоте было поле `scheduled_at` (срок выполнения), но в модели и в таблице БД его не было.  
 Я добавил это поле как `scheduled_date`, чтобы задача имела явную плановую дату.
+
+#### Запустить тесты: go test ./... -v
 
